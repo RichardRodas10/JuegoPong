@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Juego Pong</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div id="start-screen" class="screen">
+        <h1>Juego Pong</h1>
+        <h2>Richard Mauricio Rodas Carhuas</h2>
+        <button onclick="startGame()">Iniciar Juego</button>
+    </div>
+
+    <div id="end-screen" class="screen" style="display: none;">
+        <h1>¡Felicitaciones Richard Rodas!</h1>
+        <button onclick="restartGame()">Jugar de nuevo</button>
+        <button onclick="location.reload()">Volver al inicio</button>
+    </div>
+
+    <audio id="collision-sound" src="audio/collision.wav" preload="auto"></audio>
+    <audio id="background-music" src="audio/level2.mp3" loop autoplay></audio>
+
+    <canvas id="pong" width="800" height="400"></canvas>
+
+    <script>
+        const canvas = document.getElementById('pong');
+        const context = canvas.getContext('2d');
+
+        const paddleWidth = 10, paddleHeight = 100;
+        let paddleSpeed = 4;
+        const ballSize = 10;
+
+        let leftPaddleY = canvas.height / 2 - paddleHeight / 2;
+        let rightPaddleY = canvas.height / 2 - paddleHeight / 2;
+
+        let ballX = canvas.width / 2;
+        let ballY = canvas.height / 2;
+        let ballSpeedX = 4;
+        let ballSpeedY = 2;
+
+        let leftScore = 0;
+        let rightScore = 0;
+
+        let level = 1;
+        let levelShown = false;
+
+
+        let keys = {};
+        let animationId;
+
+        const collisionSound = document.getElementById('collision-sound');
+        const backgroundMusic = document.getElementById('background-music');
+
+        function draw() {
+            if (level === 1) {
+            context.fillStyle = 'black';
+            } else if (level === 2) {
+                context.fillStyle = '#003366'; // azul oscuro
+            }
+            context.fillRect(0, 0, canvas.width, canvas.height);
+
+            context.fillStyle = 'white';
+
+            // Paddles
+            context.fillRect(10, leftPaddleY, paddleWidth, paddleHeight);
+            context.fillRect(canvas.width - 20, rightPaddleY, paddleWidth, paddleHeight);
+
+            // Ball
+            context.beginPath();
+            context.arc(ballX, ballY, ballSize, 0, Math.PI * 2);
+            context.fill();
+            context.closePath();
+
+            // Score
+            context.font = "30px Arial";
+            context.fillText(leftScore, canvas.width / 4, 30);
+            context.fillText(rightScore, 3 * canvas.width / 4, 30);
+        }
+
+        document.addEventListener('keydown', (e) => keys[e.key] = true);
+        document.addEventListener('keyup', (e) => keys[e.key] = false);
+
+        function resetBall() {
+            ballX = canvas.width / 2;
+            ballY = canvas.height / 2;
+            ballSpeedX = -ballSpeedX;
+        }
+
+        function checkLevel() {
+            if ((leftScore === 3 || rightScore === 3) && level === 1) {
+                level = 2;
+                ballSpeedX *= 1.5;
+                ballSpeedY *= 1.5;
+                paddleSpeed = 5;
+                levelShown = true;
+
+                // Mostrar mensaje de nivel 2 por 2 segundos
+                const levelMessage = document.createElement('div');
+                levelMessage.textContent = '¡Nivel 2!';
+                levelMessage.style.position = 'absolute';
+                levelMessage.style.top = '50%';
+                levelMessage.style.left = '50%';
+                levelMessage.style.transform = 'translate(-50%, -50%)';
+                levelMessage.style.color = 'yellow';
+                levelMessage.style.fontSize = '48px';
+                levelMessage.style.fontFamily = 'Arial';
+                levelMessage.style.zIndex = 2;
+                document.body.appendChild(levelMessage);
+
+                setTimeout(() => {
+                    document.body.removeChild(levelMessage);
+                    levelShown = false;
+                }, 2000);
+            }
+        }
+
+
+        function checkGameOver() {
+            if (leftScore >= 5 || rightScore >= 5) {
+                cancelAnimationFrame(animationId);
+                document.getElementById('end-screen').style.display = 'flex';
+            }
+        }
+
+        function update() {
+            ballX += ballSpeedX;
+            ballY += ballSpeedY;
+
+            // Rebotar en los bordes superior/inferior
+            if (ballY <= 0 || ballY >= canvas.height) {
+                ballSpeedY = -ballSpeedY;
+            }
+
+            // Colisión con paleta izquierda
+            if (ballX <= 20 && ballY >= leftPaddleY && ballY <= leftPaddleY + paddleHeight) {
+                ballSpeedX = -ballSpeedX;
+                collisionSound.play();
+            }
+
+            // Colisión con paleta derecha
+            if (ballX >= canvas.width - 20 && ballY >= rightPaddleY && ballY <= rightPaddleY + paddleHeight) {
+                ballSpeedX = -ballSpeedX;
+                collisionSound.play();
+            }
+
+            // Puntaje
+            if (ballX < 0) {
+                rightScore++;
+                resetBall();
+            }
+
+            if (ballX > canvas.width) {
+                leftScore++;
+                resetBall();
+            }
+
+            // Movimiento de paletas
+            if (keys['w'] && leftPaddleY > 0) leftPaddleY -= paddleSpeed;
+            if (keys['s'] && leftPaddleY < canvas.height - paddleHeight) leftPaddleY += paddleSpeed;
+            if (keys['ArrowUp'] && rightPaddleY > 0) rightPaddleY -= paddleSpeed;
+            if (keys['ArrowDown'] && rightPaddleY < canvas.height - paddleHeight) rightPaddleY += paddleSpeed;
+
+            checkLevel();
+            checkGameOver();
+        }
+
+        function gameLoop() {
+            draw();
+            update();
+            animationId = requestAnimationFrame(gameLoop);
+        }
+
+        function startGame() {
+            document.getElementById('start-screen').style.display = 'none';
+            backgroundMusic.play();
+            gameLoop();
+        }
+
+        function restartGame() {
+            leftScore = 0;
+            rightScore = 0;
+            ballSpeedX = 4;
+            ballSpeedY = 2;
+            paddleSpeed = 4;
+            leftPaddleY = canvas.height / 2 - paddleHeight / 2;
+            rightPaddleY = canvas.height / 2 - paddleHeight / 2;
+            ballX = canvas.width / 2;
+            ballY = canvas.height / 2;
+            document.getElementById('end-screen').style.display = 'none';
+            gameLoop();
+        }
+    </script>
+</body>
+</html>
